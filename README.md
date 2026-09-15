@@ -4,7 +4,7 @@ An interactive, zoomable diagram of a production-grade RAG (Retrieval-Augmented 
 pipeline — from ingestion through hybrid retrieval, reranking, generation, and the eval 
 feedback loop that retunes chunking and retrieval config.
 
-**[Live demo →](https://anwar-genai.github.io/rag-architecture/)**
+**[Live demo →](https://anwar-genai.github.io/RAG-Architecture/)**
 
 ## What's inside
 - Click any block to see what it does, typical stack, metrics to watch, and common failure modes
