@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG Systems — Architecture Canvas</title>
+<style>
+:root{ --canvas-w:2400px; --in:#14b8a6; --think:#6366f1; --out:#f97316; --ev:#f43f5e; }
+html[data-theme="light"]{
+  --bg:#f6f8fb; --surface:#ffffff; --surface-2:#f8fafc; --border:#e2e8f0; --border-2:#cbd5e1;
+  --text:#0f172a; --muted:#64748b; --faint:#94a3b8; --wire:#94a3b8;
+  --in-bg:#f0fdfa; --in-br:#5eead4; --in-tx:#0f766e; --in-chip:#ccfbf1; --in-chipbr:#99f6e4;
+  --th-bg:#eef2ff; --th-br:#a5b4fc; --th-tx:#4338ca; --th-chip:#e0e7ff; --th-chipbr:#c7d2fe;
+  --ou-bg:#fff7ed; --ou-br:#fdba74; --ou-tx:#c2410c; --ou-chip:#ffedd5; --ou-chipbr:#fed7aa;
+  --ev-bg:#fff1f2; --ev-br:#fda4af; --ev-tx:#be123c; --ev-chip:#ffe4e6; --ev-chipbr:#fecdd3;
+  --xc-bg:#f8fafc; --xc-br:#cbd5e1; --xc-tx:#475569; --xc-chip:#eef2f6; --xc-chipbr:#dde5ec;
+}
+html[data-theme="dark"]{
+  --bg:#0b1220; --surface:#151f31; --surface-2:#111a2a; --border:#27354b; --border-2:#3a4c68;
+  --text:#e8eef7; --muted:#93a3ba; --faint:#64748b; --wire:#5b6b83;
+  --in-bg:#0c332f; --in-br:#0f766e; --in-tx:#5eead4; --in-chip:#123f3a; --in-chipbr:#155e56;
+  --th-bg:#1b1f45; --th-br:#4338ca; --th-tx:#a5b4fc; --th-chip:#232a5c; --th-chipbr:#3b3f83;
+  --ou-bg:#3a2110; --ou-br:#b45309; --ou-tx:#fdba74; --ou-chip:#4a2b14; --ou-chipbr:#7c4515;
+  --ev-bg:#3b1220; --ev-br:#9f1239; --ev-tx:#fda4af; --ev-chip:#4c1626; --ev-chipbr:#7a1c36;
+  --xc-bg:#131c2b; --xc-br:#3a4c68; --xc-tx:#a8b6c9; --xc-chip:#1b2739; --xc-chipbr:#2c3a51;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{background:var(--bg); color:var(--text);
+  font-family:Inter,'SF Pro Display',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+#app{display:flex; height:100vh; overflow:hidden}
+#main{flex:1 1 auto; display:flex; flex-direction:column; min-width:0}
+
+header{flex:0 0 auto; display:flex; align-items:center; gap:20px; flex-wrap:wrap;
+  padding:14px 22px; background:var(--surface); border-bottom:1px solid var(--border)}
+.brand{display:flex; align-items:center; gap:14px; margin-right:auto}
+.bar{width:8px; height:44px; border-radius:4px;
+  background:linear-gradient(180deg,var(--in),var(--think) 45%,var(--out) 80%,var(--ev))}
+h1{margin:0; font-size:19px; font-weight:800; letter-spacing:-.2px}
+.sub{margin:3px 0 0; font-size:12.5px; color:var(--muted)}
+.ctl{display:flex; align-items:center; gap:6px}
+button{font:inherit; font-size:13px; font-weight:600; color:var(--text); background:var(--surface-2);
+  border:1px solid var(--border); border-radius:9px; padding:7px 12px; cursor:pointer; transition:.15s}
+button:hover{border-color:var(--border-2)}
+button.on{background:var(--th-chip); border-color:var(--th-br); color:var(--th-tx)}
+.zoomval{font-size:12.5px; color:var(--muted); min-width:44px; text-align:center; font-variant-numeric:tabular-nums}
+
+#stage{flex:1 1 auto; overflow:auto; padding:30px; cursor:grab}
+#stage.drag{cursor:grabbing}
+#zoomer{transform-origin:0 0}
+#canvas{width:var(--canvas-w); position:relative; padding:8px 40px 8px 80px}
+svg#wires{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible}
+
+.slabel{display:flex; align-items:baseline; gap:18px; margin:0 0 14px;
+  font-size:11.5px; font-weight:800; letter-spacing:2.2px; color:var(--faint)}
+.slabel span{font-size:14px; font-weight:500; letter-spacing:0; color:var(--muted)}
+.clock{font-size:12px; font-weight:800; letter-spacing:.4px; padding:4px 11px; border-radius:20px}
+.legend{display:flex; gap:20px; margin-left:auto; letter-spacing:0}
+.legend b{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--muted)}
+.dot{width:11px; height:11px; border-radius:50%}
+
+.node{border-radius:16px; border:1.6px solid var(--border); background:var(--surface);
+  padding:16px 18px 18px; cursor:pointer; text-align:left; display:flex; flex-direction:column;
+  transition:transform .14s, box-shadow .14s, opacity .2s; box-shadow:0 4px 14px rgba(15,23,42,.05)}
+.node:hover{transform:translateY(-3px); box-shadow:0 10px 26px rgba(15,23,42,.12)}
+.node:focus-visible{outline:3px solid var(--think); outline-offset:3px}
+.node.sel{box-shadow:0 0 0 3px var(--think), 0 10px 26px rgba(15,23,42,.14)}
+.nhead{display:flex; align-items:center; gap:10px; margin-bottom:12px}
+.step{font-size:12px; font-weight:800; padding:3px 10px; border-radius:20px}
+.lat{margin-left:auto; font-size:12.5px; font-weight:700; font-variant-numeric:tabular-nums}
+.node h3{margin:0; font-size:19px; font-weight:800; letter-spacing:-.3px; line-height:1.2}
+.role{margin:5px 0 0; font-size:13px; color:var(--muted); line-height:1.45}
+.rule{height:1px; background:var(--border); margin:13px 0 11px}
+.klabel{font-size:10.5px; font-weight:800; letter-spacing:1.8px; color:var(--faint); margin-bottom:8px}
+.chips{display:flex; flex-wrap:wrap; gap:6px}
+.chip{font-size:11.5px; font-weight:600; padding:4px 9px; border-radius:20px; border:1px solid}
+
+.p-in{background:var(--in-bg); border-color:var(--in-br)}
+.p-in .step,.p-in .lat{color:var(--in-tx)} .p-in .step{background:var(--in-chip)}
+.p-in .chip{background:var(--in-chip); border-color:var(--in-chipbr); color:var(--in-tx)}
+.p-th{background:var(--th-bg); border-color:var(--th-br)}
+.p-th .step,.p-th .lat{color:var(--th-tx)} .p-th .step{background:var(--th-chip)}
+.p-th .chip{background:var(--th-chip); border-color:var(--th-chipbr); color:var(--th-tx)}
+.p-ou{background:var(--ou-bg); border-color:var(--ou-br)}
+.p-ou .step,.p-ou .lat{color:var(--ou-tx)} .p-ou .step{background:var(--ou-chip)}
+.p-ou .chip{background:var(--ou-chip); border-color:var(--ou-chipbr); color:var(--ou-tx)}
+.p-ev{background:var(--ev-bg); border-color:var(--ev-br)}
+.p-ev .step,.p-ev .lat{color:var(--ev-tx)} .p-ev .step{background:var(--ev-chip)}
+.p-ev .chip{background:var(--ev-chip); border-color:var(--ev-chipbr); color:var(--ev-tx)}
+.p-xc{background:var(--xc-bg); border-color:var(--xc-br)}
+.p-xc .step,.p-xc .lat{color:var(--xc-tx)} .p-xc .step{background:var(--xc-chip)}
+.p-xc .chip{background:var(--xc-chip); border-color:var(--xc-chipbr); color:var(--xc-tx)}
+
+.ing{display:grid; grid-template-columns:repeat(6,1fr); column-gap:38px; margin:72px 0 40px}
+.idx{border:1.8px solid var(--th-br); border-radius:22px; padding:20px 24px 24px;
+  background:var(--th-bg); margin:60px 0 40px}
+.idxg{display:grid; grid-template-columns:repeat(3,1fr); gap:24px; margin-top:14px}
+.idxg .node{box-shadow:none; background:var(--surface)}
+.qry{display:grid; grid-template-columns:repeat(5,1fr); column-gap:46px; row-gap:88px; margin:64px 0 86px}
+.hybrid{border:1.8px dashed var(--ou-br); border-radius:18px; padding:36px 14px 14px 14px;
+  display:flex; flex-direction:column; gap:12px; position:relative; background:transparent}
+.hybrid > .hlab{position:absolute; top:12px; left:16px; font-size:10.5px; font-weight:800;
+  letter-spacing:1.6px; color:var(--ou-tx)}
+.hybrid .node{flex:1}
+.par{position:absolute; right:16px; top:12px; font-size:11px; font-weight:700; color:var(--ou-tx); opacity:.75}
+
+.xband{border:1.6px dashed var(--border-2); border-radius:20px; padding:20px 24px 24px; background:var(--surface-2)}
+.xgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:22px; margin-top:14px}
+.xgrid .node{box-shadow:none}
+#canvas.hot .xband{opacity:.4} #canvas.hot .xband:hover{opacity:1}
+
+.sec{margin:0 0 86px}
+.funnel{width:100%; height:auto; display:block; margin-top:6px}
+.latbar{display:flex; height:46px; border-radius:8px; overflow:hidden; gap:3px; margin-top:14px}
+.latbar div{border-radius:5px}
+.latleg{display:grid; grid-template-columns:repeat(6,1fr); gap:14px; margin-top:16px}
+.latleg b{display:block; font-size:13px; font-weight:700}
+.latleg i{display:block; font-size:12.5px; font-style:normal; color:var(--muted); font-variant-numeric:tabular-nums}
+.latleg div{border-top:3px solid; padding-top:9px}
+.note{margin:20px 0 0; font-size:13.5px; color:var(--muted); line-height:1.65; max-width:1500px}
+.foot{margin:20px 0 10px; font-size:12.5px; color:var(--faint); line-height:1.6; max-width:1500px}
+
+#panel{flex:0 0 auto; width:0; overflow:hidden; background:var(--surface);
+  border-left:1px solid var(--border); transition:width .22s ease}
+#panel.open{width:440px}
+.pinner{width:440px; height:100vh; overflow-y:auto; padding:26px 28px 60px}
+.phead{display:flex; align-items:flex-start; gap:12px}
+.phead h2{margin:0; font-size:24px; font-weight:800; letter-spacing:-.4px; flex:1}
+.pclose{border:none; background:transparent; font-size:22px; line-height:1; padding:2px 6px; color:var(--muted)}
+.pmeta{display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 20px}
+.pmeta span{font-size:12px; font-weight:700; padding:5px 11px; border-radius:20px; border:1px solid}
+.pinner h4{margin:26px 0 10px; font-size:11px; font-weight:800; letter-spacing:1.8px; color:var(--faint)}
+.pinner p{margin:0; font-size:14.5px; line-height:1.65}
+.pinner ul{margin:0; padding-left:19px}
+.pinner li{font-size:14px; line-height:1.62; margin-bottom:8px}
+.empty{color:var(--muted); font-size:14px; line-height:1.6; margin-top:40vh; text-align:center}
+@media (max-width:900px){ #panel.open{width:100%; position:absolute; right:0; top:0; z-index:20; height:100vh} .pinner{width:100%} }
+
+@page{size:A3 landscape; margin:8mm}
+@media print{
+  header,#panel{display:none !important}
+  #app,#stage{display:block; height:auto; overflow:visible; padding:0}
+  #zoomer{transform:scale(.58) !important; transform-origin:0 0}
+  .node{box-shadow:none !important; break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="main">
+    <header>
+      <div class="brand">
+        <div class="bar"></div>
+        <div>
+          <h1>RAG Systems — Architecture Canvas</h1>
+          <p class="sub">Two pipelines · two clocks · one shared index · click any block for failure modes and practice</p>
+        </div>
+      </div>
+      <div class="ctl">
+        <button id="hot" title="Dim the cross-cutting layer">Pipeline only</button>
+        <button id="theme">Dark</button>
+        <button id="print">Print</button>
+      </div>
+      <div class="ctl">
+        <button id="zout" aria-label="Zoom out">−</button><span class="zoomval" id="zval">100%</span>
+        <button id="zin" aria-label="Zoom in">+</button><button id="zfit">Fit</button>
+      </div>
+    </header>
+
+    <div id="stage"><div id="zoomer"><div id="canvas">
+      <svg id="wires" aria-hidden="true"></svg>
+
+      <div class="slabel" id="inglab">INGESTION
+        <span class="clock" style="background:var(--in-chip);color:var(--in-tx)">OFFLINE CLOCK · minutes to hours</span>
+        <span style="margin-left:auto">runs on a schedule or a trigger — quality is decided here, paid for on every query</span>
+        <div class="legend">
+          <b><i class="dot" style="background:var(--in)"></i>ingestion</b>
+          <b><i class="dot" style="background:var(--think)"></i>index</b>
+          <b><i class="dot" style="background:var(--out)"></i>query</b>
+          <b><i class="dot" style="background:var(--ev)"></i>eval loop</b>
+        </div>
+      </div>
+      <div class="ing" id="ing"></div>
+
+      <div class="idx" id="idxband">
+        <div class="slabel" style="margin:0">THE INDEX — WHERE THE TWO PIPELINES MEET
+          <span style="margin-left:auto">the only artifact shared between them · change chunking or embeddings and this must be rebuilt</span>
+        </div>
+        <div class="idxg" id="idxg"></div>
+      </div>
+
+      <div class="slabel">QUERY
+        <span class="clock" style="background:var(--ou-chip);color:var(--ou-tx)">ONLINE CLOCK · hundreds of milliseconds</span>
+        <span style="margin-left:auto">runs per request — can only work with what ingestion already put in the index</span>
+      </div>
+      <div class="qry" id="qry"></div>
+
+      <div class="sec">
+        <div class="slabel" style="margin-bottom:0">THE RECALL → PRECISION FUNNEL
+          <span>the tradeoff that decides answer quality · cast wide, then cut hard</span>
+        </div>
+        <svg class="funnel" id="funnel" viewBox="0 0 2280 268" preserveAspectRatio="xMidYMid meet"></svg>
+        <p class="note">Every stage trades recall for precision. Retrieve too few candidates and the answer was never in the running; put too many in the prompt and the model loses the one that mattered. <b>Recall is won in retrieval and can never be recovered later; precision is won in reranking and assembly.</b></p>
+      </div>
+
+      <div class="sec">
+        <div class="slabel" style="margin-bottom:0">QUERY LATENCY
+          <span>~580 ms to first token · secondary to the funnel, but it caps how much reranking you can afford</span>
+        </div>
+        <div class="latbar" id="latbar"></div>
+        <div class="latleg" id="latleg"></div>
+      </div>
+
+      <div class="xband">
+        <div class="slabel" style="margin-bottom:0">CROSS-CUTTING — CONSTRAINTS ON BOTH LANES
+          <span>not stages · these cut through ingestion and query alike</span>
+        </div>
+        <div class="xgrid" id="xgrid"></div>
+      </div>
+
+      <p class="foot">Vendor names are examples, not endorsements. Funnel and latency figures are illustrative defaults — the numbers that matter are the ones from your own eval set.</p>
+    </div></div></div>
+  </div>
+  <aside id="panel"><div class="pinner" id="pinner"><p class="empty">Select a block to see what it does, what breaks, and what to watch.</p></div></aside>
+</div>
+
+<script>
+const PH = {ing:'p-in', idx:'p-th', qry:'p-ou', ev:'p-ev', xc:'p-xc'};
+const PL = {ing:'Ingestion · offline', idx:'Index', qry:'Query · online', ev:'Eval loop', xc:'Cross-cutting'};
+
+const N = {
+sources:{step:'1',name:'Sources',role:'Connectors, crawlers, uploads, APIs',phase:'ing',lat:'',
+ what:'Everything the system is allowed to answer from. The boundary drawn here is a hard ceiling on quality — no retrieval strategy recovers a document that was never ingested.',
+ vendors:['S3','Google Drive','SharePoint','Confluence','Notion','Postgres CDC','Airbyte','web crawlers'],
+ metrics:['Source coverage','Freshness lag','Ingest success rate','Document count by source'],
+ fails:['Connectors failing silently, leaving a stale corpus that still answers confidently','Permissions in the source system not carried through to the index','The same document ingested twice from two sources and competing with itself','Binary or unsupported formats skipped with no alert'],
+ best:['Capture source, version and permissions at ingest — you cannot reconstruct them later','Alert on freshness lag, not just on job failure','Treat deletion as a first-class event, not an absence']},
+
+parse:{step:'2',name:'Parse & extract',role:'PDF, OCR, tables, layout',phase:'ing',lat:'',
+ what:'Turns files into clean text with structure intact. The stage most teams underinvest in and then blame the retriever for.',
+ vendors:['Unstructured','LlamaParse','Docling','Azure Doc Intelligence','PyMuPDF','Marker','Tesseract'],
+ metrics:['Extraction success rate','Table fidelity','OCR confidence','Characters per page vs expected'],
+ fails:['Tables flattened into unreadable token soup','Multi-column PDFs read straight across the columns','Headers and footers repeated into every single chunk','Scanned pages silently producing empty text'],
+ best:['Evaluate parsing separately from retrieval, on a held-out set of your ugliest documents','Keep tables as markdown or HTML, never as raw text runs','Strip boilerplate before chunking, not after','Fail loudly on empty extraction rather than indexing nothing']},
+
+chunk:{step:'3',name:'Chunk',role:'Strategy, size, overlap, structure',phase:'ing',lat:'',
+ what:'Where retrieval quality is actually decided. Changing it means a full reindex, which makes it the most expensive thing in the pipeline to get wrong.',
+ vendors:['Structure-aware splitting','Recursive character','Semantic chunking','Late chunking','Parent-document'],
+ metrics:['Chunk size distribution','Orphan rate','Recall@k by chunking strategy'],
+ fails:['Fixed-size splits cutting through a table or mid-clause','Chunks too small to stand alone once retrieved','Chunks so large the embedding averages away the specific thing you needed','No overlap, so the answer straddles a boundary and neither side scores'],
+ best:['Split on document structure first and size second','Carry the section heading into every chunk','A/B two chunking strategies against the same eval set before committing to either','Store parent-document ids so you can expand back out at read time']},
+
+enrich:{step:'4',name:'Enrich',role:'Metadata, titles, contextual summaries',phase:'ing',lat:'',
+ what:'Attaches everything the retriever will filter and rank on, and everything the answer will eventually cite.',
+ vendors:['LLM contextual summaries','Title extraction','Entity tagging','Tenant and ACL tags','Date normalisation'],
+ metrics:['Metadata completeness','Filter selectivity','Tag accuracy','Enrichment cost per document'],
+ fails:['Tenant tag missing on a subset of documents — a leak waiting to happen','Dates stored as unparsed strings, so recency filters silently match nothing','Enrichment quietly costing more than embedding'],
+ best:['Prepend a short contextual header (document title + section) to each chunk before embedding — cheap, and one of the largest single wins available','Make tenant and ACL tags non-nullable at the schema level','Normalise dates and enums at write time, never at query time']},
+
+embed:{step:'5',name:'Embed',role:'Model, dimensions, normalisation',phase:'ing',lat:'',
+ what:'Maps chunks into vector space. The model choice is lock-in: switching means re-embedding the entire corpus and revalidating everything downstream.',
+ vendors:['text-embedding-3','Cohere Embed','Voyage','BGE-M3','E5','Jina','Nomic'],
+ metrics:['Recall@k on your own eval set','Cost per million tokens','Throughput','Dimensions vs index size'],
+ fails:['Query and document embedded with different models or different prompt templates','Multilingual corpus embedded with an English-first model','Silent truncation at max sequence length dropping the tail of long chunks','Unnormalised vectors used with a cosine index'],
+ best:['Benchmark three models on your own data — public leaderboards do not transfer to your domain','For Pashto, Urdu or Arabic content, inspect the tokeniser before you trust the benchmark','Version the embedding model alongside the index it produced','Batch aggressively; this stage is pure throughput']},
+
+indexwrite:{step:'6',name:'Index write',role:'Upsert, versioning, atomic swap',phase:'ing',lat:'',
+ what:'Commits chunks and vectors. The point at which a bad reindex can take production down while looking like it succeeded.',
+ vendors:['Qdrant','pgvector','Weaviate','Milvus','Pinecone','Elasticsearch','Vespa'],
+ metrics:['Index build time','Upsert throughput','Index size','Staleness after write'],
+ fails:['Partial reindex leaving old and new chunking mixed in one collection','No way to roll back a bad embedding run','Deletes not propagating, so retracted documents keep answering questions'],
+ best:['Build into a new collection and swap an alias atomically — never mutate the live index in place','Keep the previous version until the new one has passed eval','Make delete a real, tested operation']},
+
+vindex:{step:'◆',name:'Vector index',role:'ANN search — HNSW, IVF',phase:'idx',lat:'',
+ what:'Approximate nearest-neighbour search over embeddings. Fast and recall-lossy by design; its parameters trade recall against latency, and the defaults are rarely right.',
+ vendors:['HNSW','IVF-PQ','DiskANN','ScaNN','binary quantisation'],
+ metrics:['Recall@k vs exact search','Query latency p95','Memory footprint','Build time'],
+ fails:['Search parameters left at defaults, so recall sits far below what the embedding model could deliver','Quantisation enabled to save memory and never re-benchmarked','Filters applied after search, collapsing the result count for smaller tenants'],
+ best:['Measure ANN recall against exact search once, on your data, and write the number down','Use pre-filtering for tenant scoping, not post-filtering','Retune when the corpus grows by an order of magnitude']},
+
+lindex:{step:'◆',name:'Lexical index',role:'BM25 inverted index',phase:'idx',lat:'',
+ what:'Exact term matching. Handles precisely what embeddings are worst at: product codes, error strings, proper nouns, rare acronyms.',
+ vendors:['Elasticsearch','OpenSearch','Lucene','Tantivy','Postgres full-text','native BM25 in Vespa/Qdrant'],
+ metrics:['Recall on exact-match queries','Analyser coverage per language'],
+ fails:['Default English analyser applied to Urdu, Pashto or Arabic text','Stemming destroying part numbers and identifiers','Treated as legacy and quietly dropped — exact-match queries then regress with no alert'],
+ best:['Never ship dense-only; lexical is what saves you on identifiers','Configure the analyser per language, and verify it on real strings','Keep a set of exact-match queries permanently in the eval suite']},
+
+mstore:{step:'◆',name:'Metadata & ACL store',role:'Filters, permissions, provenance',phase:'idx',lat:'',
+ what:'The source of truth for filters, permissions and provenance. Retrieval is only ever as safe as this layer.',
+ vendors:['PostgreSQL','vector DB payload','Redis','OPA'],
+ metrics:['Filter selectivity','ACL check latency','Provenance completeness'],
+ fails:['Permissions enforced in application code instead of inside the query','Metadata drifting out of sync with the source system','No provenance, so a citation cannot be traced back to a real document'],
+ best:['Push tenant and ACL filters into the retrieval query itself','Treat a missing tenant filter as a failing test, not a warning','Store enough provenance to reconstruct any citation from scratch']},
+
+qu:{step:'7',name:'Query understanding',role:'Rewrite, expand, route, classify',phase:'qry',lat:'~40 ms',
+ what:'Turns what the user typed into what should actually be searched. In a conversation it also has to resolve references against history.',
+ vendors:['LLM rewrite','HyDE','Multi-query expansion','Intent classifiers','Small fast models'],
+ metrics:['Routing accuracy','Rewrite quality','Latency added','Retrieval-skip rate'],
+ fails:['Rewriting away the exact identifier the user typed','Follow-ups like "what about the second one" searched literally','Every query paying for a rewrite when most do not need one','Expansion generating queries that retrieve pure noise'],
+ best:['Always keep the original query as one of the search queries','Classify first, and skip retrieval entirely for chitchat and meta questions','Use a small fast model — this sits on the critical path','Log the rewritten query; it is the first thing you will need when debugging a bad answer']},
+
+bm25:{step:'8a',name:'Lexical retrieval',role:'BM25 top-k by term overlap',phase:'qry',lat:'~25 ms',
+ what:'Scores by term overlap. Runs in parallel with dense retrieval and catches everything semantic search misses.',
+ vendors:['Elasticsearch','OpenSearch','Postgres tsvector','Tantivy'],
+ metrics:['Recall@k on exact-match queries','Latency p95','Share of winning results contributed'],
+ fails:['Analyser mismatch between index time and query time','Empty result set not handled, so fusion silently degrades to dense-only','k set far lower than the dense branch with no reason'],
+ best:['Retrieve more candidates than feels necessary — fusion and rerank exist to cut them','Handle the empty branch explicitly','Keep k symmetric with the dense branch unless you have measured a reason not to']},
+
+ann:{step:'8b',name:'Dense retrieval',role:'ANN top-k by embedding similarity',phase:'qry',lat:'~35 ms',
+ what:'Nearest-neighbour search on the query embedding. Catches paraphrase and intent; reliably misses identifiers.',
+ vendors:['Qdrant','pgvector','Weaviate','Milvus','Pinecone'],
+ metrics:['Recall@k vs exact search','Latency p95','Filter pass-through rate'],
+ fails:['Tenant filter applied after the ANN search, so a small tenant gets almost nothing back','Query embedded without the asymmetric prompt the model expects','Recall degrading quietly as the corpus grows'],
+ best:['Pre-filter inside the ANN query, never after it','Use the model\u2019s intended query and document prompts — they are not interchangeable','Re-measure recall after every significant corpus growth']},
+
+fusion:{step:'9',name:'Fusion',role:'Reciprocal rank fusion',phase:'qry',lat:'~5 ms',
+ what:'Merges the two ranked lists into one. RRF works on ranks rather than scores, which is exactly why it needs no calibration between two engines that score on incomparable scales.',
+ vendors:['Reciprocal rank fusion','Weighted score fusion','Elasticsearch RRF','Vespa'],
+ metrics:['Fused recall@k vs each branch alone','Contribution ratio per branch'],
+ fails:['Score-based fusion comparing BM25 scores to cosine similarity','One branch dominating because the two k values differ','Deduplication skipped, so the same chunk appears twice and wins on volume'],
+ best:['Prefer RRF unless you have genuinely calibrated both engines','Deduplicate on chunk id before fusing','Track how often each branch supplies the winning result — if lexical never wins, your analyser is broken']},
+
+rerank:{step:'10',name:'Rerank',role:'Cross-encoder scoring',phase:'qry',lat:'~90 ms',
+ what:'Scores each candidate against the query jointly rather than independently. The largest single precision gain available, and the largest latency cost after generation.',
+ vendors:['Cohere Rerank','BGE-reranker','Voyage rerank','Jina reranker','ColBERT'],
+ metrics:['nDCG@k before and after','Latency p95','Cost per query'],
+ fails:['Reranking 500 candidates because it improved the metric, and adding 400 ms','A reranker trained on a domain nothing like yours','Reranking made optional under load, so answer quality varies invisibly'],
+ best:['Rerank 50–100 candidates, not 500 — the gain curve flattens fast','Plot nDCG gain against latency cost and pick the knee deliberately','If you must degrade under load, cut the candidate count, not the reranker']},
+
+assembly:{step:'11',name:'Context assembly',role:'Dedupe, order, expand, budget',phase:'qry',lat:'~10 ms',
+ what:'Decides what actually reaches the model: deduplication, ordering, expansion back to parent sections, and fitting the token budget.',
+ vendors:['Parent-document expansion','Contextual compression','Token budgeting'],
+ metrics:['Context token count','Chunks per answer','Position of the answer-bearing chunk'],
+ fails:['The best chunk buried in the middle of a long context where models attend to it least','Near-duplicate chunks crowding out diverse evidence','Context quietly grown until latency and cost both doubled'],
+ best:['Place the strongest evidence first and last','Cap the chunk count and enforce the cap','Expand small chunks back to their parent section before sending','Pass chunk ids through so citations remain mechanical rather than generated']},
+
+gen:{step:'12',name:'Generation',role:'Grounded answer, streamed',phase:'qry',lat:'~400 ms TTFT',
+ what:'Writes the answer from the retrieved context. Most complaints filed as hallucination at this stage are retrieval failures one stage earlier.',
+ vendors:['GPT-5','Claude','Gemini','Llama','Qwen','DeepSeek'],
+ metrics:['Time to first token','Groundedness','Answer relevance','Refusal rate','Cost per answer'],
+ fails:['Answering from parametric memory when retrieval returned nothing useful','Ignoring retrieved context that contradicts what the model already believes','Citations invented rather than carried through from chunk ids'],
+ best:['Instruct explicit refusal when the context does not support an answer — and then measure the refusal rate, because a system that never refuses is not grounded','Stream the answer; TTFT is the number the user feels','Delimit retrieved context clearly from instructions']},
+
+cite:{step:'13',name:'Cite & verify',role:'Attribution and groundedness',phase:'qry',lat:'inline + async',
+ what:'Attaches sources and checks the answer is actually supported by them. This is the difference between a demo and something a business will put its name on.',
+ vendors:['Span attribution','Groundedness classifiers','Ragas faithfulness','LLM-as-judge'],
+ metrics:['Faithfulness','Citation precision','Unsupported-claim rate'],
+ fails:['Citations pointing at the chunk but not the sentence that supports the claim','Verification run on every answer when sampling would do, doubling cost','Answer verified against the context but never against the underlying source document'],
+ best:['Carry chunk ids end to end so citations are mechanical','Cheap deterministic checks inline; expensive judges async on a sample','Show the source to the user — it is the fastest trust-building move available']},
+
+evalx:{step:'↺',name:'Evaluation & feedback',role:'Retrieval and generation, measured separately',phase:'ev',lat:'',
+ what:'The loop that turns a prototype into a system. It splits in two because the fixes live in completely different places: if retrieval failed, no prompt change will help; if retrieval succeeded and the answer is still wrong, reindexing will not help either.',
+ vendors:['Ragas','Langfuse','LangSmith','TruLens','pytest harness','LLM-as-judge','human labels'],
+ metrics:['Recall@k, nDCG, MRR (retrieval)','Faithfulness, answer relevance, context precision (generation)','Cost and latency per query'],
+ fails:['A single end-to-end score that cannot distinguish a retrieval failure from a generation failure','An eval set built from questions the system already answers well','Judge model changed at the same time as the system, so nothing is comparable to anything'],
+ best:['Measure retrieval and generation separately — always','Freeze a golden set, version it, and treat changes to it as changes to the experiment','Run the suite in CI on every chunking, embedding or prompt change','Feed production traces and thumbs-down back into the eval set continuously']},
+
+tenant:{step:'⌗',name:'Tenant isolation',role:'Access control across both lanes',phase:'xc',lat:'',
+ what:'Cuts through ingestion and query alike. The failure here is the one that is genuinely unrecoverable: showing one customer another customer\u2019s documents.',
+ vendors:['Row-level security','Per-tenant collections','Payload filters','OPA'],
+ metrics:['Filter coverage','Cross-tenant test pass rate','Permission sync lag'],
+ fails:['Filter enforced in application code and forgotten on one code path','Post-filtering after ANN search instead of pre-filtering','Permissions changed in the source system and never synced to the index'],
+ best:['Enforce in the query, never in the application','Write an automated cross-tenant leak test and run it in CI','Choose between shared-collection-with-filter and per-tenant collections early — retrofitting is painful']},
+
+obs:{step:'⌗',name:'Observability',role:'One trace per query, spans per stage',phase:'xc',lat:'',
+ what:'Without per-stage traces carrying retrieved chunk ids, you cannot tell a chunking problem from a prompt problem — you only know the answer was bad.',
+ vendors:['Langfuse','LangSmith','OpenTelemetry','Arize Phoenix','Grafana'],
+ metrics:['p50 and p95 per stage','Cost per query','Retrieval hit rate','Thumbs-down rate'],
+ fails:['Traces recording the answer but not which chunks produced it','Sampling that hides the tail, which is where the failures live','No path from a user complaint back to its trace'],
+ best:['Log retrieved chunk ids on every query — the single most useful field you will ever store','Make every trace reachable from the product UI','Alert on retrieval hit rate, not only on errors']},
+
+version:{step:'⌗',name:'Versioning & reindexing',role:'Chunking, embeddings and index are one artifact',phase:'xc',lat:'',
+ what:'Chunking strategy, embedding model and index are a single coupled artifact. Change any one and all three have to be rebuilt and revalidated together.',
+ vendors:['Collection aliases','Blue/green indexes','Migration jobs'],
+ metrics:['Reindex duration','Rollback time','Version drift'],
+ fails:['Live index mutated in place mid-reindex','No record of which embedding model produced which vectors','Rollback impossible because the previous index was deleted on success'],
+ best:['Build to a new collection, validate against eval, swap the alias','Stamp every vector with its embedding model version','Keep the previous index until the new one has been live and clean for a while']},
+
+cost:{step:'⌗',name:'Caching & cost',role:'Where the money actually goes',phase:'xc',lat:'',
+ what:'RAG cost is dominated by two things teams forget to measure: re-embedding the corpus on every reindex, and reranking on every single query.',
+ vendors:['Semantic cache','Exact-match cache','Prompt caching','Batch embedding APIs'],
+ metrics:['Cost per query','Cost per reindex','Cache hit rate','Token spend by stage'],
+ fails:['Semantic cache returning a stale answer after the corpus changed underneath it','Cache keyed on the raw query, so rewrites bypass it entirely','Reranker spend invisible because it is billed on a separate line'],
+ best:['Cache exact repeats aggressively; cache semantic matches carefully, and key them on corpus version','Use batch APIs for reindexing','Track cost per stage so you know which one to attack first']}
+};
+
+const ING = ['sources','parse','chunk','enrich','embed','indexwrite'];
+const IDX = ['vindex','lindex','mstore'];
+const XC  = ['tenant','obs','version','cost'];
+
+const FUNNEL = [
+  ['Corpus','2.4M chunks','#14b8a6'],
+  ['Hybrid retrieval','200 candidates','#3b9fc9'],
+  ['Fusion','60 fused','#6366f1'],
+  ['Rerank','8 survive','#b45ec8'],
+  ['Prompt','4 sent','#f97316']
+];
+const LAT = [
+  ['Query understanding',40,'#fdba74'],['Retrieval (parallel)',35,'#fb923c'],['Fusion',5,'#f97316'],
+  ['Rerank',90,'#ea580c'],['Assembly',10,'#d9540c'],['Generation TTFT',400,'#9a3412']
+];
+
+function nodeEl(id){
+  const d=N[id], el=document.createElement('button');
+  el.className='node '+PH[d.phase]; el.id='n-'+id; el.type='button';
+  el.setAttribute('aria-label', d.name+' — '+d.role);
+  const chips=d.vendors.slice(0,5).map(v=>`<span class="chip">${v}</span>`).join('');
+  el.innerHTML=`<div class="nhead"><span class="step">${d.step}</span>${d.lat?`<span class="lat">${d.lat}</span>`:''}</div>`+
+    `<h3>${d.name}</h3><p class="role">${d.role}</p>`+
+    `<div class="rule"></div><div class="klabel">STACK</div><div class="chips">${chips}</div>`;
+  el.addEventListener('click',()=>open_(id));
+  return el;
+}
+
+const ingEl=document.getElementById('ing');
+ING.forEach(id=>ingEl.appendChild(nodeEl(id)));
+const idxg=document.getElementById('idxg');
+IDX.forEach(id=>idxg.appendChild(nodeEl(id)));
+const xg=document.getElementById('xgrid');
+XC.forEach(id=>xg.appendChild(nodeEl(id)));
+
+const qry=document.getElementById('qry');
+function place(el,col,row){ el.style.gridColumn=col; el.style.gridRow=row; qry.appendChild(el); }
+place(nodeEl('qu'),1,1);
+const hyb=document.createElement('div'); hyb.className='hybrid'; hyb.id='hybrid';
+hyb.innerHTML='<div class="hlab">HYBRID RETRIEVAL</div><div class="par">runs in parallel</div>';
+hyb.appendChild(nodeEl('bm25')); hyb.appendChild(nodeEl('ann'));
+place(hyb,2,1);
+place(nodeEl('fusion'),3,1);
+place(nodeEl('rerank'),4,1);
+place(nodeEl('assembly'),5,1);
+place(nodeEl('gen'),5,2);
+place(nodeEl('cite'),4,2);
+const ev=nodeEl('evalx'); ev.style.gridColumn='1 / span 2'; ev.style.gridRow=2; qry.appendChild(ev);
+
+/* funnel */
+(function(){
+  const W=2280, cy=150, H=[160,98,60,34,20,12], seg=W/FUNNEL.length;
+  let s='';
+  FUNNEL.forEach(([name,count,col],i)=>{
+    const x0=i*seg, x1=x0+seg, a=H[i]/2, b=H[i+1]/2;
+    s+=`<path d="M${x0} ${cy-a} L${x1} ${cy-b} L${x1} ${cy+b} L${x0} ${cy+a} Z" fill="${col}" fill-opacity="0.9"/>`;
+    s+=`<text x="${x0+seg/2}" y="34" text-anchor="middle" font-size="19" font-weight="800" fill="var(--text)" font-family="inherit">${name}</text>`;
+    s+=`<text x="${x0+seg/2}" y="248" text-anchor="middle" font-size="21" font-weight="700" fill="${col}" font-family="inherit">${count}</text>`;
+    if(i) s+=`<line x1="${x0}" y1="52" x2="${x0}" y2="228" stroke="var(--border)" stroke-width="1.4" stroke-dasharray="4 6"/>`;
+  });
+  document.getElementById('funnel').innerHTML=s;
+})();
+
+const tot=LAT.reduce((s,l)=>s+l[1],0);
+document.getElementById('latbar').innerHTML=LAT.map(([n,ms,c])=>`<div style="flex:${ms};background:${c};opacity:.88" title="${n} — ${ms} ms"></div>`).join('');
+document.getElementById('latleg').innerHTML=LAT.map(([n,ms,c])=>`<div style="border-color:${c}"><b>${n}</b><i>${ms} ms · ${Math.round(ms/tot*100)}%</i></div>`).join('');
+
+/* wires */
+const svg=document.getElementById('wires'), NS='http://www.w3.org/2000/svg';
+function B(id){const e=document.getElementById(id);return{l:e.offsetLeft,t:e.offsetTop,w:e.offsetWidth,h:e.offsetHeight,
+  r:e.offsetLeft+e.offsetWidth,b:e.offsetTop+e.offsetHeight,cx:e.offsetLeft+e.offsetWidth/2,cy:e.offsetTop+e.offsetHeight/2};}
+const key=c=>'ah-'+c.replace(/[^a-z0-9]/gi,'');
+function wire(d,c,dash){const p=document.createElementNS(NS,'path');
+  p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke',c);
+  p.setAttribute('stroke-width','2.4');p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');
+  p.setAttribute('marker-end','url(#'+key(c)+')'); if(dash)p.setAttribute('stroke-dasharray','9 8');
+  svg.appendChild(p);}
+function label(x,y,t,c){const e=document.createElementNS(NS,'text');
+  e.setAttribute('x',x);e.setAttribute('y',y);e.setAttribute('text-anchor','middle');
+  e.setAttribute('fill',c);e.setAttribute('font-size','14');e.setAttribute('font-weight','700');
+  e.setAttribute('font-family','inherit');e.textContent=t;svg.appendChild(e);}
+function draw(){
+  svg.innerHTML='';
+  const defs=document.createElementNS(NS,'defs');
+  ['var(--in-br)','var(--th-br)','var(--ou-br)','var(--ev-br)'].forEach(c=>{
+    const m=document.createElementNS(NS,'marker');
+    m.setAttribute('id',key(c));m.setAttribute('viewBox','0 0 10 10');m.setAttribute('refX','8');m.setAttribute('refY','5');
+    m.setAttribute('markerWidth','6');m.setAttribute('markerHeight','6');m.setAttribute('orient','auto-start-reverse');
+    const p=document.createElementNS(NS,'path');p.setAttribute('d','M2 1L8 5L2 9');p.setAttribute('fill','none');
+    p.setAttribute('stroke',c);p.setAttribute('stroke-width','1.8');p.setAttribute('stroke-linecap','round');
+    p.setAttribute('stroke-linejoin','round');m.appendChild(p);defs.appendChild(m);});
+  svg.appendChild(defs);
+  const G=7;
+
+  for(let i=0;i<ING.length-1;i++){const a=B('n-'+ING[i]),b=B('n-'+ING[i+1]);wire(`M${a.r} ${a.cy} H${b.l-G}`,'var(--in-br)');}
+  const iw=B('n-indexwrite'), band=B('idxband');
+  wire(`M${iw.cx} ${iw.b} V${band.t-G}`,'var(--in-br)');
+  label(iw.cx+62, iw.b+42, 'writes', 'var(--muted)');
+
+  const hy=B('hybrid');
+  wire(`M${hy.cx} ${band.b} V${hy.t-G}`,'var(--th-br)');
+  label(hy.cx+58, band.b+42, 'reads', 'var(--muted)');
+
+  const qu=B('n-qu'), fu=B('n-fusion'), rr=B('n-rerank'), as=B('n-assembly'),
+        gn=B('n-gen'), ct=B('n-cite'), evb=B('n-evalx'), ch=B('n-chunk');
+  wire(`M${qu.r} ${qu.cy} H${hy.l-G}`,'var(--ou-br)');
+  wire(`M${hy.r} ${hy.cy} H${fu.l-G}`,'var(--ou-br)');
+  wire(`M${fu.r} ${fu.cy} H${rr.l-G}`,'var(--ou-br)');
+  wire(`M${rr.r} ${rr.cy} H${as.l-G}`,'var(--ou-br)');
+  wire(`M${as.cx} ${as.b} V${gn.t-G}`,'var(--ou-br)');
+  wire(`M${gn.l} ${gn.cy} H${ct.r+G}`,'var(--ou-br)');
+  wire(`M${ct.l} ${ct.cy} H${evb.r+G}`,'var(--ev-br)',true);
+
+  const gx=30, ty=B('ing').t-38;
+  wire(`M${evb.l} ${evb.cy} H${gx} V${ty} H${ch.cx} V${ch.t-G}`,'var(--ev-br)',true);
+  label((gx+ch.cx)/2, ty-12, 'eval results retune chunking, embeddings and retrieval config','var(--ev-br)');
+}
+
+/* drawer */
+const panel=document.getElementById('panel'), pinner=document.getElementById('pinner');
+const L=a=>'<ul>'+a.map(i=>`<li>${i}</li>`).join('')+'</ul>';
+function open_(id){
+  const d=N[id];
+  document.querySelectorAll('.node.sel').forEach(e=>e.classList.remove('sel'));
+  document.getElementById('n-'+id).classList.add('sel');
+  const t={ing:['--in-chip','--in-chipbr','--in-tx'],idx:['--th-chip','--th-chipbr','--th-tx'],
+           qry:['--ou-chip','--ou-chipbr','--ou-tx'],ev:['--ev-chip','--ev-chipbr','--ev-tx'],
+           xc:['--xc-chip','--xc-chipbr','--xc-tx']}[d.phase].map(v=>'var('+v+')');
+  const pill=v=>`<span style="background:${t[0]};border-color:${t[1]};color:${t[2]}">${v}</span>`;
+  pinner.innerHTML=`<div class="phead"><h2>${d.name}</h2><button class="pclose" aria-label="Close">×</button></div>`+
+    `<div class="pmeta">${pill(PL[d.phase])}${d.lat?pill(d.lat):''}</div>`+
+    `<h4>WHAT IT DOES</h4><p>${d.what}</p>`+
+    `<h4>TYPICAL STACK</h4><div class="chips">${d.vendors.map(v=>`<span class="chip" style="background:${t[0]};border-color:${t[1]};color:${t[2]}">${v}</span>`).join('')}</div>`+
+    `<h4>METRICS TO WATCH</h4>${L(d.metrics)}<h4>FAILURE MODES</h4>${L(d.fails)}<h4>BEST PRACTICES</h4>${L(d.best)}`;
+  pinner.querySelector('.pclose').onclick=close_;
+  panel.classList.add('open'); requestAnimationFrame(draw);
+}
+function close_(){panel.classList.remove('open');
+  document.querySelectorAll('.node.sel').forEach(e=>e.classList.remove('sel'));
+  pinner.innerHTML='<p class="empty">Select a block to see what it does, what breaks, and what to watch.</p>';
+  requestAnimationFrame(draw);}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')close_();});
+
+/* controls */
+const stage=document.getElementById('stage'), zoomer=document.getElementById('zoomer'), cv=document.getElementById('canvas');
+let z=1;
+function setZoom(v){z=Math.min(2,Math.max(.25,v));zoomer.style.transform='scale('+z+')';
+  zoomer.style.width=(cv.offsetWidth*z)+'px';zoomer.style.height=(cv.offsetHeight*z)+'px';
+  document.getElementById('zval').textContent=Math.round(z*100)+'%';}
+document.getElementById('zin').onclick=()=>setZoom(z+.1);
+document.getElementById('zout').onclick=()=>setZoom(z-.1);
+document.getElementById('zfit').onclick=()=>setZoom((stage.clientWidth-60)/cv.offsetWidth);
+document.getElementById('print').onclick=()=>window.print();
+document.getElementById('hot').onclick=e=>{cv.classList.toggle('hot');e.currentTarget.classList.toggle('on');};
+document.getElementById('theme').onclick=e=>{const dk=document.documentElement.dataset.theme==='dark';
+  document.documentElement.dataset.theme=dk?'light':'dark';e.currentTarget.textContent=dk?'Dark':'Light';
+  requestAnimationFrame(draw);};
+if(window.matchMedia('(prefers-color-scheme: dark)').matches){
+  document.documentElement.dataset.theme='dark';document.getElementById('theme').textContent='Light';}
+
+let dg=false,sx,sy,sl,st;
+stage.addEventListener('mousedown',e=>{if(e.target.closest('.node'))return;
+  dg=true;stage.classList.add('drag');sx=e.clientX;sy=e.clientY;sl=stage.scrollLeft;st=stage.scrollTop;});
+window.addEventListener('mousemove',e=>{if(!dg)return;
+  stage.scrollLeft=sl-(e.clientX-sx);stage.scrollTop=st-(e.clientY-sy);});
+window.addEventListener('mouseup',()=>{dg=false;stage.classList.remove('drag');});
+stage.addEventListener('wheel',e=>{if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();setZoom(z-e.deltaY*0.002);},{passive:false});
+
+function init(){draw();setZoom(Math.min(1,(stage.clientWidth-60)/cv.offsetWidth));}
+window.addEventListener('resize',()=>{draw();setZoom(z);});
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(init);}else{window.addEventListener('load',init);}
+init();
+</script>
+</body>
+</html>
