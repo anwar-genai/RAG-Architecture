@@ -1,10 +1,17 @@
 # RAG Architecture Canvas
 
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Status](https://img.shields.io/badge/status-live-brightgreen)
+
 An interactive, zoomable diagram of a production-grade RAG (Retrieval-Augmented Generation) 
 pipeline — from ingestion through hybrid retrieval, reranking, generation, and the eval 
 feedback loop that retunes chunking and retrieval config.
 
-**[Live demo →](https://anwar-genai.github.io/RAG-Architecture/)**
+<!-- Replace the line below with the image GitHub generates when you drag-drop your screenshot/GIF -->
+![RAG Architecture Canvas demo]
+<img width="1912" height="972" alt="Screenshot 2026-09-15 152633" src="https://github.com/user-attachments/assets/e11a729c-b966-4cd9-ac9a-a5069ec37601" />
+
+### 🔗 [Live Demo →](https://anwar-genai.github.io/RAG-Architecture/)
 
 ## What's inside
 - Click any block to see what it does, typical stack, metrics to watch, and common failure modes
